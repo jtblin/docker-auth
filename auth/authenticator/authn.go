@@ -21,7 +21,7 @@ type Factory func(config io.Reader) (Interface, error)
 
 type Interface interface {
 	// Authenticate authenticates the user against the backend server
-	Authenticate(username, password string) (bool, error)
+	Authenticate(username, password string) (bool, interface{}, error)
 }
 
 func RegisterBackend(name string, backend Factory) {

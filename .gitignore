@@ -26,4 +26,5 @@ _testmain.go
 
 # Created by .ignore support plugin (hsz.mobi)
 
-build//bin/
+build/bin/
+examples/ldap.private.ini

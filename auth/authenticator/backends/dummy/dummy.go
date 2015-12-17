@@ -22,6 +22,6 @@ func newDummyBackend(config io.Reader) (authenticator.Interface, error) {
 	return new(DummyBackend), nil
 }
 
-func (l *DummyBackend) Authenticate(username, password string) (bool, error) {
-	return true, nil
+func (l *DummyBackend) Authenticate(username, password string) (bool, interface{}, error) {
+	return true, nil, nil
 }

@@ -112,13 +112,11 @@ type TokenResponse struct {
 }
 
 func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) *appError {
-	log.Debugf("Request headers: %+v", r.Header)
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		err := errors.New("Missing Authorization header")
 		return &appError{err, err.Error(), http.StatusUnauthorized}
 	}
-	log.Debugf("Auth: %s:%s", username, password)
 	ok, _, err := s.Authenticator.Authenticate(username, password)
 	if err != nil || !ok {
 		if err != nil {

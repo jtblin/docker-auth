@@ -47,10 +47,10 @@ release:
 
 run:
 	./build/bin/docker-auth --audience=buildstep --issuer=buildstep --public-key-file=`pwd`/dev/certs/public.pem \
-		--signing-key-file=`pwd`/dev/certs/private.pem --verbose --authn-backend=ldap --authn-config-file=examples/ldap.ini
+		--signing-key-file=`pwd`/dev/certs/private.pem --verbose --authn-backend=ldap --authn-config-file=examples/ldap.private.ini
 
 run-docker:
-	docker run --rm -it -p 5001:5001 -v `pwd`/dev/certs:/etc/ssl/certs:ro -v `pwd`/examples/ldap.ini:/etc/docker-auth/ldap.ini:ro \
+	docker run --rm -it -p 5001:5001 -v `pwd`/dev/certs:/etc/ssl/certs:ro -v `pwd`/examples/ldap.private.ini:/etc/docker-auth/ldap.ini:ro \
 		-v $(HOME)/.pwd:/etc/docker-auth/.ldap_password:ro $(IMAGE_NAME):$(GIT_HASH) --audience=buildstep \
 		--issuer=buildstep --public-key-file=/etc/ssl/certs/public.pem --signing-key-file=/etc/ssl/certs/private.pem --verbose \
 		--authn-backend=ldap --authn-config-file=/etc/docker-auth/ldap.ini
