@@ -16,7 +16,7 @@ setup:
 build: *.go
 	gofmt -w=true .
 	goimports -w=true .
-	go build -o build/bin/$(BINARY_NAME) -x $(GOBUILD_VERSION_ARGS) bitbucket.org/$(IMAGE_NAME)
+	go build -o build/bin/$(BINARY_NAME) -x $(GOBUILD_VERSION_ARGS) github.com/$(IMAGE_NAME)
 
 test: build
 	go test

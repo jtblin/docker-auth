@@ -10,7 +10,7 @@ import (
 	"github.com/gogits/gogs/modules/auth/ldap"
 	"github.com/scalingdata/gcfg"
 
-	"bitbucket.org/jtblin/docker-auth/auth/authenticator"
+	"github.com/jtblin/docker-auth/auth/authenticator"
 )
 
 const BackendName = "ldap"

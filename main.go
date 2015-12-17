@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/jtblin/docker-auth/app"
+	"github.com/jtblin/docker-auth/app"
 
 	"runtime"
 

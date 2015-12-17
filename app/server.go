@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/jtblin/docker-auth/auth/authenticator"
-	_ "bitbucket.org/jtblin/docker-auth/auth/authenticator/backends"
+	"github.com/jtblin/docker-auth/auth/authenticator"
+	_ "github.com/jtblin/docker-auth/auth/authenticator/backends"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
@@ -80,6 +80,7 @@ func (s *DockerAuthServer) Run() error {
 	s.Authenticator = authnBackend
 	r := mux.NewRouter()
 	r.Handle("/token", appHandler(s.tokenHandler))
+	r.Handle("/{path:.*}", appHandler(s.notFoundHandler))
 	log.Infof("Listening on port %s", s.AppPort)
 	return http.ListenAndServe(":"+s.AppPort, r)
 }
@@ -118,7 +119,7 @@ func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) 
 		return &appError{err, err.Error(), http.StatusUnauthorized}
 	}
 	log.Debugf("Auth: %s:%s", username, password)
-	ok, err := s.Authenticator.Authenticate(username, password)
+	ok, _, err := s.Authenticator.Authenticate(username, password)
 	if err != nil || !ok {
 		if err != nil {
 			return &appError{err, err.Error(), http.StatusInternalServerError}
@@ -189,5 +190,20 @@ func parseScope(scope string) Scope {
 		Type:    items[0],
 		Name:    items[1],
 		Actions: strings.Split(items[2], ","),
+	}
+}
+
+func (s *DockerAuthServer) notFoundHandler(w http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	path := vars["path"]
+	w.WriteHeader(404)
+	write(w, "Not found "+path)
+	log.Infof("Not found " + path)
+	return nil
+}
+
+func write(w http.ResponseWriter, s string) {
+	if _, err := w.Write([]byte(s)); err != nil {
+		log.Errorf("Error writing response: %+v", err)
 	}
 }

@@ -3,7 +3,7 @@ package dummy
 import (
 	"io"
 
-	"bitbucket.org/jtblin/docker-auth/auth/authenticator"
+	"github.com/jtblin/docker-auth/auth/authenticator"
 )
 
 const BackendName = "dummy"
