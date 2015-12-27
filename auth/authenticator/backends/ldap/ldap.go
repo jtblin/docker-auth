@@ -11,6 +11,7 @@ import (
 	"github.com/scalingdata/gcfg"
 
 	"github.com/jtblin/docker-auth/auth/authenticator"
+	"github.com/jtblin/docker-auth/types"
 )
 
 const BackendName = "ldap"
@@ -79,12 +80,18 @@ func newLDAPBackend(config io.Reader) (authenticator.Interface, error) {
 	}}, nil
 }
 
+// User represents a ldap user state.
 type User struct {
 	Attributes map[string]string
 	Groups     []string
 }
 
-func (lb *LDAPBackend) Authenticate(username, password string) (bool, interface{}, error) {
+// From returns the backend name
+func (u *User) From() string {
+	return BackendName
+}
+
+func (lb *LDAPBackend) Authenticate(username, password string) (bool, types.User, error) {
 	lc := lb.client
 	defer lc.Close()
 	ok, attributes, err := lc.Authenticate(username, password)

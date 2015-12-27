@@ -11,6 +11,9 @@ import (
 
 	"github.com/jtblin/docker-auth/auth/authenticator"
 	_ "github.com/jtblin/docker-auth/auth/authenticator/backends"
+	"github.com/jtblin/docker-auth/auth/authorizer"
+	_ "github.com/jtblin/docker-auth/auth/authorizer/backends"
+	"github.com/jtblin/docker-auth/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
@@ -27,7 +30,9 @@ type DockerAuthServer struct {
 	Authenticator           authenticator.Interface
 	AuthenticatorBackend    string
 	AuthenticatorConfigFile string
+	Authorizer              authorizer.Interface
 	AuthorizerBackend       string
+	AuthorizerConfigFile    string
 	Issuer                  string
 	PublicKey               []byte
 	PublicKeyFile           string
@@ -41,6 +46,7 @@ func NewDockerAuthServer() *DockerAuthServer {
 	return &DockerAuthServer{
 		AppPort:              "5001",
 		AuthenticatorBackend: "dummy",
+		AuthorizerBackend:    "dummy",
 	}
 }
 
@@ -50,7 +56,8 @@ func (s *DockerAuthServer) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Audience, "audience", s.Audience, "audience")
 	fs.StringVar(&s.AuthenticatorBackend, "authn-backend", s.AuthenticatorBackend, "authn-backend")
 	fs.StringVar(&s.AuthenticatorConfigFile, "authn-config-file", s.AuthenticatorConfigFile, "authn-config-file")
-	fs.StringVar(&s.AuthorizerBackend, "authz-provider", s.AuthorizerBackend, "authz-provider")
+	fs.StringVar(&s.AuthorizerBackend, "authz-backend", s.AuthorizerBackend, "authz-backend")
+	fs.StringVar(&s.AuthorizerConfigFile, "authz-config-file", s.AuthorizerConfigFile, "authz-config-file")
 	fs.StringVar(&s.Issuer, "issuer", s.Issuer, "issuer")
 	fs.StringVar(&s.PublicKeyFile, "public-key-file", s.PublicKeyFile, "Public key file path")
 	fs.StringVar(&s.SigningKeyFile, "signing-key-file", s.SigningKeyFile, "Signing key path")
@@ -76,10 +83,16 @@ func (s *DockerAuthServer) Run() error {
 	if err != nil {
 		return err
 	}
-	log.Infof("Successfully initialized authenticator backend: %q from the config file: %q\n", s.AuthenticatorBackend, s.AuthenticatorConfigFile)
+	log.Infof("Successfully initialized authentication backend: %q from the config file: %q", s.AuthenticatorBackend, s.AuthenticatorConfigFile)
 	s.Authenticator = authnBackend
+	authzBackend, err := authorizer.InitAuthorizerBackend(s.AuthorizerBackend, s.AuthorizerConfigFile)
+	if err != nil {
+		return err
+	}
+	log.Infof("Successfully initialized authorization backend: %q from the config file: %q", s.AuthorizerBackend, s.AuthorizerConfigFile)
+	s.Authorizer = authzBackend
 	r := mux.NewRouter()
-	r.Handle("/token", appHandler(s.tokenHandler))
+	r.Handle("/v2/token", appHandler(s.tokenHandler))
 	r.Handle("/{path:.*}", appHandler(s.notFoundHandler))
 	log.Infof("Listening on port %s", s.AppPort)
 	return http.ListenAndServe(":"+s.AppPort, r)
@@ -112,12 +125,13 @@ type TokenResponse struct {
 }
 
 func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) *appError {
+	log.Debugf("Token handler. Headers: %+v", r.Header)
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		err := errors.New("Missing Authorization header")
 		return &appError{err, err.Error(), http.StatusUnauthorized}
 	}
-	ok, _, err := s.Authenticator.Authenticate(username, password)
+	ok, user, err := s.Authenticator.Authenticate(username, password)
 	if err != nil || !ok {
 		if err != nil {
 			return &appError{err, err.Error(), http.StatusInternalServerError}
@@ -129,13 +143,14 @@ func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	reqScopes := r.URL.Query()["scope"]
 	log.Debugf("Request scopes: %+v", reqScopes)
-	scopes := []Scope{}
+	scopes := []types.Scope{}
 	for _, scope := range reqScopes {
 		scopes = append(scopes, parseScope(scope))
 	}
-	// TODO: authz
 	if len(scopes) > 0 {
-
+		if scopes, err = s.Authorizer.Authorize(user, scopes); err != nil {
+			return &appError{err, err.Error(), http.StatusInternalServerError}
+		}
 	} else {
 		// Authentication-only request ("docker login"), pass through.
 	}
@@ -151,7 +166,7 @@ func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // GenerateToken generates the json web token
-func (s *DockerAuthServer) GenerateToken(scopes []Scope, username string) (string, error) {
+func (s *DockerAuthServer) GenerateToken(scopes []types.Scope, username string) (string, error) {
 	token := jwt.New(jwt.SigningMethodRS256)
 	token.Claims["access"] = scopes
 	token.Claims["aud"] = s.Audience
@@ -169,22 +184,15 @@ func (s *DockerAuthServer) GenerateToken(scopes []Scope, username string) (strin
 	return token.SignedString(s.SigningKey)
 }
 
-// Scope represents the authorization scope
-type Scope struct {
-	Type    string   `json:"type"`
-	Name    string   `json:"name"`
-	Actions []string `json:"actions"`
-}
-
 // parseScope splits a scope item into a type, name and action pair that matches the spec
 // Example: repository:samalba/my-app:pull,push
-func parseScope(scope string) Scope {
+func parseScope(scope string) types.Scope {
 	items := strings.Split(scope, ":")
 	if len(items) != 3 {
 		log.WithFields(log.Fields{"item": scope}).Error("Error parsing scope")
-		return Scope{}
+		return types.Scope{}
 	}
-	return Scope{
+	return types.Scope{
 		Type:    items[0],
 		Name:    items[1],
 		Actions: strings.Split(items[2], ","),
@@ -196,12 +204,12 @@ func (s *DockerAuthServer) notFoundHandler(w http.ResponseWriter, r *http.Reques
 	path := vars["path"]
 	w.WriteHeader(404)
 	write(w, "Not found "+path)
-	log.Infof("Not found " + path)
+	log.Infof("Not found %s", path)
 	return nil
 }
 
 func write(w http.ResponseWriter, s string) {
 	if _, err := w.Write([]byte(s)); err != nil {
-		log.Errorf("Error writing response: %+v", err)
+		log.Errorf("Error writing response to socket: %+v", err)
 	}
 }
