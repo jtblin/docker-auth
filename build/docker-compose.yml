@@ -1,0 +1,28 @@
+docker-auth:
+  build: .
+  command: docker-auth --audience=${REGISTRY_DOMAIN} --issuer=${REGISTRY_DOMAIN} --public-key-file=/certs/public.pem --signing-key-file=/certs/private.pem --verbose
+  environment:
+    PWD:
+    REGISTRY_DOMAIN:
+  ports:
+    - 5001:5001
+  volumes:
+    - ${PWD}/dev/data:/var/lib/registry
+    - ${PWD}/dev/certs:/certs
+registry:
+  environment:
+    PWD:
+    REGISTRY_HTTP_SECRET: secret
+    REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+    REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+    REGISTRY_AUTH: token
+    REGISTRY_AUTH_TOKEN_SERVICE: ${REGISTRY_DOMAIN}
+    REGISTRY_AUTH_TOKEN_REALM: http://${REGISTRY_DOMAIN}:5001/v2/token
+    REGISTRY_AUTH_TOKEN_ISSUER: ${REGISTRY_DOMAIN}
+    REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE: /certs/server.pem
+  image: registry:2.2.1
+  ports:
+    - 443:5000
+  volumes:
+    - ${PWD}/dev/data:/var/lib/registry
+    - ${PWD}/dev/certs:/certs
