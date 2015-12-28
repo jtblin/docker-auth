@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/jtblin/docker-auth/auth/authenticator"
-	_ "github.com/jtblin/docker-auth/auth/authenticator/backends"
+	_ "github.com/jtblin/docker-auth/auth/authenticator/backends" // init authn backends
 	"github.com/jtblin/docker-auth/auth/authorizer"
-	_ "github.com/jtblin/docker-auth/auth/authorizer/backends"
+	_ "github.com/jtblin/docker-auth/auth/authorizer/backends" // init authz backends
 	"github.com/jtblin/docker-auth/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -120,7 +121,7 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type TokenResponse struct {
+type tokenResponse struct {
 	Token string `json:"token"`
 }
 
@@ -147,19 +148,18 @@ func (s *DockerAuthServer) tokenHandler(w http.ResponseWriter, r *http.Request) 
 	for _, scope := range reqScopes {
 		scopes = append(scopes, parseScope(scope))
 	}
+	// Authentication-only requests e.g. "docker login" pass through.
 	if len(scopes) > 0 {
 		if scopes, err = s.Authorizer.Authorize(user, scopes); err != nil {
 			return &appError{err, err.Error(), http.StatusInternalServerError}
 		}
-	} else {
-		// Authentication-only request ("docker login"), pass through.
 	}
 	token, err := s.GenerateToken(scopes, username)
 	if err != nil {
 		return &appError{err, err.Error(), http.StatusInternalServerError}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	if err := json.NewEncoder(w).Encode(TokenResponse{token}); err != nil {
+	if err := json.NewEncoder(w).Encode(tokenResponse{token}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	return nil
@@ -208,7 +208,7 @@ func (s *DockerAuthServer) notFoundHandler(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
-func write(w http.ResponseWriter, s string) {
+func write(w io.Writer, s string) {
 	if _, err := w.Write([]byte(s)); err != nil {
 		log.Errorf("Error writing response to socket: %+v", err)
 	}

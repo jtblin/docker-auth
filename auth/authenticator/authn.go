@@ -21,11 +21,13 @@ var backends = make(map[string]Factory)
 // the parameter is nil.
 type Factory func(config io.Reader) (Interface, error)
 
+// Interface represents an authenticator
 type Interface interface {
 	// Authenticate authenticates the user against the backend server
 	Authenticate(username, password string) (bool, types.User, error)
 }
 
+// RegisterBackend registers an authentication backend
 func RegisterBackend(name string, backend Factory) {
 	backendsMutex.Lock()
 	defer backendsMutex.Unlock()
@@ -69,7 +71,11 @@ func InitAuthenticatorBackend(name string, configFilePath string) (Interface, er
 				configFilePath, err)
 		}
 
-		defer config.Close()
+		defer func() {
+			if err := config.Close(); err != nil {
+				log.Errorf("Error closing config file: %v", err)
+			}
+		}()
 		cloud, err = GetAuthenticatorBackend(name, config)
 	} else {
 		// Pass explicit nil so plugins can actually check for nil. See

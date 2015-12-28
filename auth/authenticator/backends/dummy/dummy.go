@@ -7,10 +7,10 @@ import (
 	"github.com/jtblin/docker-auth/types"
 )
 
-const BackendName = "dummy"
+const backendName = "dummy"
 
-// DummyBackend is an implementation of Authenticator Interface for dummies.
-type DummyBackend struct {
+// Backend is an implementation of Authenticator Interface for dummies.
+type Backend struct {
 }
 
 // User represents a dummy user state.
@@ -19,19 +19,20 @@ type User struct {
 
 // From returns the backend name
 func (u *User) From() string {
-	return BackendName
+	return backendName
 }
 
 func init() {
-	authenticator.RegisterBackend(BackendName, func(config io.Reader) (authenticator.Interface, error) {
+	authenticator.RegisterBackend(backendName, func(config io.Reader) (authenticator.Interface, error) {
 		return newDummyBackend(config)
 	})
 }
 
 func newDummyBackend(config io.Reader) (authenticator.Interface, error) {
-	return new(DummyBackend), nil
+	return new(Backend), nil
 }
 
-func (l *DummyBackend) Authenticate(username, password string) (bool, types.User, error) {
+// Authenticate always says OK
+func (l *Backend) Authenticate(username, password string) (bool, types.User, error) {
 	return true, &User{}, nil
 }

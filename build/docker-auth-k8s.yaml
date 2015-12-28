@@ -82,7 +82,7 @@ spec:
         - --public-key-file=/certs/public.pem
         - --signing-key-file=/certs/private.pem
         - --verbose
-        image: jtblin/docker-auth:f0476b5
+        image: jtblin/docker-auth:db74c4f
         ports:
         - containerPort: 5001
           protocol: TCP

@@ -14,16 +14,16 @@ import (
 	"github.com/jtblin/docker-auth/types"
 )
 
-const BackendName = "ldap"
+const backendName = "ldap"
 
-// LDAPBackend is an implementation of Authenticator Interface for LDAP.
-type LDAPBackend struct {
-	cfg    *LDAPConfig
+// Backend is an implementation of Authenticator Interface for LDAP.
+type Backend struct {
+	cfg    *Config
 	client *ldap.LDAPClient
 }
 
-// LDAPConfig contains the config for the ldap backend
-type LDAPConfig struct {
+// Config contains the config for the ldap backend
+type Config struct {
 	Global struct {
 		Base      string
 		Filter    string
@@ -45,13 +45,13 @@ type LDAPConfig struct {
 }
 
 func init() {
-	authenticator.RegisterBackend(BackendName, func(config io.Reader) (authenticator.Interface, error) {
+	authenticator.RegisterBackend(backendName, func(config io.Reader) (authenticator.Interface, error) {
 		return newLDAPBackend(config)
 	})
 }
 
 func newLDAPBackend(config io.Reader) (authenticator.Interface, error) {
-	var cfg LDAPConfig
+	var cfg Config
 
 	if config == nil {
 		return nil, errors.New("missing required ldap config")
@@ -67,7 +67,7 @@ func newLDAPBackend(config io.Reader) (authenticator.Interface, error) {
 		return nil, err
 	}
 
-	return &LDAPBackend{cfg: &cfg, client: &ldap.LDAPClient{
+	return &Backend{cfg: &cfg, client: &ldap.LDAPClient{
 		Base:         cfg.Global.Base,
 		Host:         cfg.Global.Host,
 		Port:         cfg.Global.Port,
@@ -88,10 +88,11 @@ type User struct {
 
 // From returns the backend name
 func (u *User) From() string {
-	return BackendName
+	return backendName
 }
 
-func (lb *LDAPBackend) Authenticate(username, password string) (bool, types.User, error) {
+// Authenticate authenticates an user against LDAP
+func (lb *Backend) Authenticate(username, password string) (bool, types.User, error) {
 	lc := lb.client
 	defer lc.Close()
 	ok, attributes, err := lc.Authenticate(username, password)

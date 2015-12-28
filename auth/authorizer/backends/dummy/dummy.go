@@ -8,22 +8,23 @@ import (
 	"github.com/jtblin/docker-auth/auth/authorizer"
 )
 
-const BackendName = "dummy"
+const backendName = "dummy"
 
-// DummyBackend is an implementation of Authorizer Interface for dummies.
-type DummyBackend struct {
+// Backend is an implementation of Authorizer Interface for dummies.
+type Backend struct {
 }
 
 func init() {
-	authorizer.RegisterBackend(BackendName, func(config io.Reader) (authorizer.Interface, error) {
+	authorizer.RegisterBackend(backendName, func(config io.Reader) (authorizer.Interface, error) {
 		return newDummyBackend(config)
 	})
 }
 
 func newDummyBackend(config io.Reader) (authorizer.Interface, error) {
-	return new(DummyBackend), nil
+	return new(Backend), nil
 }
 
-func (l *DummyBackend) Authorize(user types.User, scopes []types.Scope) ([]types.Scope, error) {
+// Authorize authorizes a dummy user to do anything
+func (l *Backend) Authorize(user types.User, scopes []types.Scope) ([]types.Scope, error) {
 	return scopes, nil
 }
